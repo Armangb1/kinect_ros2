@@ -156,6 +156,12 @@ void KinectRosComponent::timer_callback()
     // cv::waitKey(1);
     _depth_flag = false;
   }
+  auto header1 = std_msgs::msg::Header();
+  header1.frame_id = "kinect_depth";
+
+  auto stamp1 = now();
+  header1.stamp = stamp1;
+  rgb_info_.header.stamp = stamp1;
 
   if (_rgb_flag) {
     auto msg = cv_bridge::CvImage(std_msgs::msg::Header(), "rgb8", _rgb_image).toImageMsg();
