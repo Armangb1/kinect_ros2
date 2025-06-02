@@ -3,7 +3,7 @@
 
 extern "C"
 {
-  #include "libfreenect/libfreenect.h"
+  #include "libfreenect.h"
 }
 #include "rclcpp/rclcpp.hpp"
 #include "camera_info_manager/camera_info_manager.hpp"
