@@ -21,6 +21,16 @@ KinectRosComponent::KinectRosComponent(const rclcpp::NodeOptions & options)
   
   std::string pkg_share = ament_index_cpp::get_package_share_directory("kinect_ros2");
 
+  this->declare_parameter<std::string>("rgb_frame_id", "kinect_rgb");
+  this->declare_parameter<std::string>("depth_frame_id", "kinect_depth");
+
+  std::string rgb_frame_id = this->get_parameter("rgb_frame_id").as_string();
+  std::string depth_frame_id = this->get_parameter("depth_frame_id").as_string();
+  
+  // In constructor, after declaring parameters:
+  param_callback_handle_ = this->add_on_set_parameters_callback(
+  std::bind(&KinectRosComponent::parameters_callback, this, std::placeholders::_1));
+  
   //todo: use parameters
   depth_info_manager_ = std::make_shared<camera_info_manager::CameraInfoManager>(
     this, "kinect",
@@ -31,9 +41,9 @@ KinectRosComponent::KinectRosComponent(const rclcpp::NodeOptions & options)
     "file://" + pkg_share + "/cfg/calibration_rgb.yaml");
 
   rgb_info_ = rgb_info_manager_->getCameraInfo();
-  rgb_info_.header.frame_id = "kinect_rgb";
+  rgb_info_.header.frame_id = rgb_frame_id;
   depth_info_ = depth_info_manager_->getCameraInfo();
-  depth_info_.header.frame_id = "kinect_depth";
+  depth_info_.header.frame_id = depth_frame_id;
 
   depth_pub_ = image_transport::create_camera_publisher(this, "depth/image_raw");
   rgb_pub_ = image_transport::create_camera_publisher(this, "image_raw");
@@ -102,6 +112,32 @@ KinectRosComponent::~KinectRosComponent()
 }
 
 
+
+
+void KinectRosComponent::on_parameter_event(const std::vector<rclcpp::Parameter> & parameters)
+{
+  for (const auto & param : parameters) {
+    if (param.get_name() == "rgb_frame_id") {
+      rgb_info_.header.frame_id = param.as_string();
+    } else if (param.get_name() == "depth_frame_id") {
+      depth_info_.header.frame_id = param.as_string();
+    }
+  }
+}
+
+rcl_interfaces::msg::SetParametersResult KinectRosComponent::parameters_callback(
+  const std::vector<rclcpp::Parameter> & parameters)
+{
+  on_parameter_event(parameters);
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+  result.reason = "success";
+  return result;
+}
+
+
+
+  
 /* The freenect lib stores the depth data in a static region of the memory, so the best way to
 create a cv::Mat is passing the pointer of that region, avoiding the need of copying the data
 to a new cv::Mat. This way, the callback only used to set a flag that indicates that a new image
@@ -137,19 +173,20 @@ void KinectRosComponent::rgb_cb(freenect_device * dev, void * rgb_ptr, uint32_t 
 void KinectRosComponent::timer_callback()
 {
   freenect_process_events(fn_ctx_);
-  auto header = std_msgs::msg::Header();
-  header.frame_id = "kinect_depth";
 
-  auto stamp = now();
-  header.stamp = stamp;
-  depth_info_.header.stamp = stamp;
+  auto stamp = this->now();
 
   if (_depth_flag) {
+    auto depth_header = std_msgs::msg::Header();
+    depth_header.frame_id = depth_info_.header.frame_id;
+    depth_header.stamp = stamp;
+    depth_info_.header.stamp = stamp;
+    
     //convert 16bit to 8bit mono
     // cv::Mat depth_8UC1(_depth_image, CV_16UC1);
     // depth_8UC1.convertTo(depth_8UC1, CV_8UC1);
 
-    auto msg = cv_bridge::CvImage(header, "16UC1", _depth_image).toImageMsg();
+    auto msg = cv_bridge::CvImage(depth_header, "16UC1", _depth_image).toImageMsg();
     depth_pub_.publish(*msg, depth_info_);
 
     // cv::imshow("Depth", _depth_image);
@@ -158,7 +195,12 @@ void KinectRosComponent::timer_callback()
   }
 
   if (_rgb_flag) {
-    auto msg = cv_bridge::CvImage(std_msgs::msg::Header(), "rgb8", _rgb_image).toImageMsg();
+    auto rgb_header = std_msgs::msg::Header();
+    rgb_header.frame_id = rgb_info_.header.frame_id;
+    rgb_header.stamp = stamp;
+    rgb_info_.header.stamp = stamp;
+    
+    auto msg = cv_bridge::CvImage(rgb_header, "rgb8", _rgb_image).toImageMsg();
     rgb_pub_.publish(*msg, rgb_info_);
 
     // cv::imshow("RGB", _rgb_image);

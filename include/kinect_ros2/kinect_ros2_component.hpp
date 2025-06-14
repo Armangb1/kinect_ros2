@@ -34,6 +34,12 @@ private:
   static void rgb_cb(freenect_device * dev, void * rgb_ptr, uint32_t timestamp);
 
   void timer_callback();
+
+
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle_;
+  void on_parameter_event(const std::vector<rclcpp::Parameter> & parameters);
+  rcl_interfaces::msg::SetParametersResult parameters_callback(
+  const std::vector<rclcpp::Parameter> & parameters);
 };
 
 }
