@@ -9,7 +9,7 @@ extern "C"
 #include "camera_info_manager/camera_info_manager.hpp"
 #include "image_transport/image_transport.hpp"
 #include "sensor_msgs/msg/camera_info.hpp"
-#include "cv_bridge/cv_bridge.h"
+#include "cv_bridge/cv_bridge.hpp"
 
 namespace kinect_ros2
 {
